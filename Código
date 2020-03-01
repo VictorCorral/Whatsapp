@@ -1,0 +1,69 @@
+library("rwhatsapp")                             # Permite rwa_read para leer el chat
+setwd("C:/Users/usuario/Documents/Datos RStudio")    # directorio de trabajo
+chat <- rwa_read("Chat comida.txt")             # Lee el chat exportado
+Chat_completo <- chat                            # Copia para filtros
+library("dplyr")                                 # Habilita la sintaxis %>% de tuberIa
+library("ggplot2")                               # grAfica
+library("lubridate")                             # mutate
+# Filtro para coger los mensajes de 1 trimestre
+chat <- Chat_completo %>%  
+  mutate(day = date(time)) %>%                   # crea la columna dIa
+  filter(day >= "2019-10-08" & day <= "2020-01-08")
+library("tidyr")                                 # Habilita el unnest para leer las listas de emojis
+library("tidytext")                              #
+library("stopwords")                             # lexico para eliminar palabras
+
+head(chat,4)                                     # Se exploran las primeras observaciones
+
+descriptivas <- unlist(chat %>%                         # Se calculan las estadIsticas descriptivas bAsicas
+                         group_by(day) %>% 
+                         summarise(mensajes=n()) %>%
+                         summarise(min(mensajes),round(mean(mensajes)),max(mensajes)))
+
+chat %>%
+  count(day) %>%                 
+  ggplot(aes(x = day, y = n)) +                         # Define el Area estetica
+  geom_bar(stat = "identity", fill="blue", alpha=0.5) + # Define la geometria tipo barra
+  ylab("# de mensajes") + xlab("dia") +
+  ggtitle("Mensajes por dIa del mes") +
+  geom_hline(yintercept=descriptivas[2]) +              # Adiciona la lInea del promedio
+  geom_text(aes(x=date("2019-10-07"),y=descriptivas[2]+10, label=paste0("promedio",descriptivas[2])),nudge_x = 2, color="black") +
+  geom_text(aes(x=date("2019-10-06"),y=descriptivas[1], label=descriptivas[1]),nudge_x = 2, color="black") +
+  geom_text(aes(x=date("2020-01-06"),y=descriptivas[3]+10, label=descriptivas[3]),nudge_x = 2, color="black") +
+  geom_smooth(fill="grey")                              # Adiciona la lInea de tendencia
+
+chat %>%
+  count(author) %>%                                     # Se agrupan los mensajes por autor
+  top_n(n = 10, n) %>%                                  # se seleccionana los primeros 10
+  ggplot(aes(x = reorder(author, n), y = n)) + 
+  geom_bar(stat = "identity", fill="red", alpha=0.5) + 
+  ylab("# de mensajes") + xlab( "Autor") +
+  coord_flip() +
+  ggtitle("Mensajes por autor en el mes")
+
+chat %>%
+  unnest(emoji_name) %>%                                         # Se extraen los nombres de los emojies
+  count(emoji_name, sort = TRUE) %>%  
+  top_n(n = 10, n) %>%           
+  ggplot(aes(x = reorder(emoji_name, n), y = n)) + 
+  geom_col(show.legend = FALSE, fill="orange", alpha=0.5) + 
+  ylab("Cantidad") + xlab( "Nombre del emoji") +
+  coord_flip() +
+  ggtitle("Cantidad de veces de emoji")
+
+
+stopwords("spanish") #Quito los artículos y preposiciones
+
+
+chat %>%
+  filter (text!="<Multimedia omitido>") %>%  #Excluyo los archivos multimedia
+  filter (text!="Reservado") %>%  #Excluyo la palabra Reservado
+  filter (text!="Falta alguien?") %>%  #Excluyo la palabra Falta alguien?
+  count(text) %>%   # Se cuentan las palabras que más se repiten
+  top_n(n = 20, n) %>%                                  # se seleccionana los primeros 10
+  ggplot(aes(x = reorder(text, n), y = n)) + 
+  geom_bar(stat = "identity", fill="red", alpha=0.5) + 
+  ylab("número de veces") + xlab( "menú") +
+  coord_flip() +
+  ggtitle("Menús más pedidos")
+
